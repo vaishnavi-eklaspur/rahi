@@ -1,26 +1,113 @@
 @import "tailwindcss";
 
+/* Rahi — bright, education-positive system: cobalt + coral on clean white,
+   with a highlighter-marker motif so it reads as authored, not templated. */
+
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #141821;
+  --paper-2: #f4f7fc;   /* banded sections / surfaces (cobalt-tinted) */
+  --hairline: #e5e9f1;  /* thin borders */
+  --muted: #5a6473;     /* secondary text */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper-2: var(--paper-2);
+  --color-hairline: var(--hairline);
+
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-inter);
+
+  /* Cobalt — the primary. */
+  --color-brand-50: #eef4fe;
+  --color-brand-100: #dbe7fd;
+  --color-brand-200: #bcd2fb;
+  --color-brand-300: #93b4f5;
+  --color-brand-400: #6090ec;
+  --color-brand-500: #3b6fe0;
+  --color-brand-600: #1f5fd0;
+  --color-brand-700: #1a4bab;
+  --color-brand-800: #17408f;
+  --color-brand-900: #16336d;
+  --color-brand-950: #0e1c40;
+
+  /* Coral — the pop / highlighter accent. */
+  --color-pop-50: #fff1ee;
+  --color-pop-100: #ffe0d8;
+  --color-pop-200: #ffc4b6;
+  --color-pop-300: #ff9d87;
+  --color-pop-400: #ff7d5f;
+  --color-pop-500: #ff6b4a;
+  --color-pop-600: #ef5334;
+  --color-pop-700: #c33f28;
+  --color-pop-800: #9c3423;
+  --color-pop-900: #6b2618;
+  --color-pop-950: #3a140b;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0f1420;
+    --foreground: #eef1f6;
+    --paper-2: #171d2b;
+    --hairline: #262d3d;
+    --muted: #98a2b3;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  letter-spacing: -0.015em;
+}
+
+/* Signature: a coral highlighter swash behind key words. */
+.marker {
+  background-color: var(--color-pop-500);
+  color: #fff;
+  padding: 0.02em 0.24em;
+  border-radius: 5px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* A hand-drawn coral underline for section labels. */
+.rule-pop {
+  background-image: linear-gradient(var(--color-pop-500), var(--color-pop-500));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 2.5rem 3px;
+  padding-bottom: 0.4rem;
+}
+
+::selection {
+  background: var(--color-pop-200);
+  color: var(--color-pop-900);
+}
+
+/* Keyboard focus: a visible ring for keyboard users (not on mouse click). */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Print / Save-as-PDF: drop the header, force light + exact colours, keep cards whole. */
+@media print {
+  header { display: none !important; }
+  body { background: #fff; color: #111; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  section, li, .avoid-break { break-inside: avoid; }
 }

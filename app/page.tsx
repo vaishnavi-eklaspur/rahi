@@ -1,64 +1,68 @@
-import Image from "next/image";
+import Link from "next/link";
+import RahiBot from "@/components/RahiBot";
+
+const PILLARS = [
+  { n: "01", t: "Interests", d: "What you're actually drawn to — mapped with Holland's RIASEC model." },
+  { n: "02", t: "Aptitude", d: "What comes easily — reasoning across numbers, words, and logic." },
+  { n: "03", t: "Emotional strengths", d: "How you work with people — the shape of role that fits you." },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="flex flex-1 flex-col items-center">
+      <main className="w-full max-w-4xl flex-1 px-6 py-16 sm:py-20">
+        {/* hero — asymmetric: text left, guide right */}
+        <section className="grid items-center gap-8 sm:grid-cols-[1fr_auto]">
+          <div>
+            <p className="rule-pop inline-block text-xs font-bold tracking-[0.2em] text-pop-700 dark:text-pop-400 uppercase">
+              Rahi · your guide
+            </p>
+            <h1 className="mt-5 text-4xl leading-[1.08] font-semibold text-balance sm:text-6xl">
+              Find work that fits{" "}
+              <span className="marker">the real you</span>.
+            </h1>
+            <p className="mt-6 max-w-xl text-lg leading-8 text-[var(--muted)]">
+              Not a personality quiz that flatters you. Rahi measures three things that
+              genuinely decide fit — your interests, aptitude, and emotional strengths —
+              then points you to careers, courses, and colleges that actually make sense.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <Link
+                href="/assessment"
+                className="inline-flex items-center justify-center rounded-full bg-brand-600 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:bg-brand-700"
+              >
+                Begin the assessment →
+              </Link>
+              <span className="text-sm text-[var(--muted)]">~10 min · 3 short tests · free</span>
+            </div>
+          </div>
+          <div className="hidden justify-self-center text-brand-600 sm:flex dark:text-brand-400">
+            <RahiBot size={168} mood="wave" />
+          </div>
+        </section>
+
+        {/* pillars — a course syllabus, numbered */}
+        <section className="mt-16 overflow-hidden rounded-2xl border border-hairline">
+          {PILLARS.map((p, i) => (
+            <div
+              key={p.n}
+              className={`flex items-baseline gap-5 px-6 py-6 sm:gap-8 sm:px-8 ${i > 0 ? "border-t border-hairline" : ""}`}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+              <span className="font-display text-3xl font-semibold text-pop-500 sm:text-4xl">{p.n}</span>
+              <div>
+                <h3 className="font-display text-xl font-semibold">{p.t}</h3>
+                <p className="mt-1 text-[var(--muted)]">{p.d}</p>
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* trust */}
+        <p className="mt-10 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+          Grounded in real psychometrics — Holland Codes, aptitude reasoning, and
+          Goleman's model of emotional intelligence. Every career comes with real
+          course, college, and salary information, never invented numbers.
+        </p>
       </main>
     </div>
   );
