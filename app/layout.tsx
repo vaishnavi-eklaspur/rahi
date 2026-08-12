@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
+import AuthorFooter from "@/components/AuthorFooter";
 
 // Fraunces (serif, some character) for headlines; Inter for everything else.
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", axes: ["opsz"] });
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="flex min-h-full flex-col">
         <Header />
         {children}
+        <AuthorFooter />
       </body>
     </html>
   );

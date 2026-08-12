@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { deviceId } from "@/lib/device";
-import { authClient, authHeader } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 import GrowthChart from "@/components/GrowthChart";
 
 type Metrics = { numerical: number; verbal: number; logical: number; eq: number };
@@ -17,9 +17,7 @@ export default function MyReports() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch(`/api/reports?device=${encodeURIComponent(deviceId())}`, {
-          headers: await authHeader(),
-        });
+        const r = await fetch(`/api/reports?device=${encodeURIComponent(deviceId())}`);
         const d = await r.json();
         setReports(d.reports ?? []);
       } catch {

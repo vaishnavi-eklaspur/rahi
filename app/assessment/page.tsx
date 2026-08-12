@@ -9,7 +9,6 @@ import { EQ_ITEMS, EQ_SCALE, type EqItem } from "@/lib/eq";
 import { sampleByGroup } from "@/lib/sample";
 import { encodeReport } from "@/lib/report-code";
 import { deviceId } from "@/lib/device";
-import { authHeader } from "@/lib/auth-client";
 import Report from "@/components/Report";
 
 const SECTIONS = [
@@ -56,7 +55,7 @@ export default function Assessment() {
       try {
         await fetch("/api/save", {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...(await authHeader()) },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: encodeReport({ rz, ap, eqA }), device: deviceId() }),
         });
       } catch {}
@@ -122,7 +121,7 @@ export default function Assessment() {
       try {
         const r = await fetch("/api/save", {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...(await authHeader()) },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: shareCode, device: deviceId() }),
         });
         const d = await r.json();
