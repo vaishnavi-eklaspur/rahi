@@ -9,9 +9,6 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2";
 
-/** Is any provider configured? (Gemini key, or we optimistically try local Ollama.) */
-export const hasLLM = () => true; // Ollama is attempted by default; failure → null
-
 // ---- Gemini ----
 function toGemini(messages: Msg[]) {
   let system = "";
