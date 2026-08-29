@@ -9,6 +9,12 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2";
 
+// Bound upstream calls so a hung provider fails fast to the deterministic fallback
+// instead of holding the request open. Streaming bounds only time-to-first-response
+// (headers); the stream body itself may then run longer.
+const COMPLETE_TIMEOUT_MS = 12_000;
+const STREAM_CONNECT_TIMEOUT_MS = 8_000;
+
 // ---- Gemini ----
 function toGemini(messages: Msg[]) {
   let system = "";
@@ -34,6 +40,7 @@ async function geminiComplete(messages: Msg[], opts?: { json?: boolean; temperat
           ...(opts?.json ? { responseMimeType: "application/json" } : {}),
         },
       }),
+      signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS),
     });
     if (!r.ok) return null;
     const data = await r.json();
@@ -46,6 +53,8 @@ async function geminiComplete(messages: Msg[], opts?: { json?: boolean; temperat
 
 async function geminiStream(messages: Msg[], opts?: { temperature?: number }): Promise<ReadableStream | null> {
   const { system, contents } = toGemini(messages);
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), STREAM_CONNECT_TIMEOUT_MS);
   let r: Response;
   try {
     r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_KEY}`, {
@@ -56,10 +65,13 @@ async function geminiStream(messages: Msg[], opts?: { temperature?: number }): P
         ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
         generationConfig: { temperature: opts?.temperature ?? 0.7 },
       }),
+      signal: ac.signal,
     });
   } catch {
+    clearTimeout(t);
     return null;
   }
+  clearTimeout(t); // headers arrived — let the stream body run unbounded
   if (!r.ok || !r.body) return null;
   return sseStream(r.body, (obj) => obj?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "");
 }
@@ -77,6 +89,7 @@ async function ollamaComplete(messages: Msg[], opts?: { json?: boolean; temperat
         options: { temperature: opts?.temperature ?? 0.6 },
         messages,
       }),
+      signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS),
     });
     if (!r.ok) return null;
     return (await r.json())?.message?.content ?? null;
@@ -86,16 +99,21 @@ async function ollamaComplete(messages: Msg[], opts?: { json?: boolean; temperat
 }
 
 async function ollamaStream(messages: Msg[], opts?: { temperature?: number }): Promise<ReadableStream | null> {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), STREAM_CONNECT_TIMEOUT_MS);
   let r: Response;
   try {
     r = await fetch(`${OLLAMA_URL}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: OLLAMA_MODEL, stream: true, options: { temperature: opts?.temperature ?? 0.7 }, messages }),
+      signal: ac.signal,
     });
   } catch {
+    clearTimeout(t);
     return null;
   }
+  clearTimeout(t); // headers arrived — let the stream body run unbounded
   if (!r.ok || !r.body) return null;
   return ndjsonStream(r.body, (obj) => obj?.message?.content ?? "");
 }

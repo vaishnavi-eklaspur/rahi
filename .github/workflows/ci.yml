@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Self-checks (scoring, fusion, encoding round-trip)
+        run: node lib/riasec.selfcheck.ts
+
+      - name: Type-check & build
+        run: npm run build
+        env:
+          # Build-time placeholders — never used at runtime (real values live in Vercel).
+          # Present only so any module-level init has something to read during the build.
+          DATABASE_URL: postgres://user:pass@localhost:5432/db
+          BETTER_AUTH_SECRET: ci-build-placeholder-secret-value-0000
+          BETTER_AUTH_URL: http://localhost:3000

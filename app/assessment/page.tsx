@@ -34,6 +34,11 @@ type Answers = Record<number, number>;
 const makeRiasec = () => sampleByGroup(QUESTIONS, (q) => q.dim, 4);
 const makeEq = () => sampleByGroup(EQ_ITEMS, (it) => it.domain, 3);
 
+// Persist an in-progress attempt so a refresh / accidental tab-close doesn't wipe it.
+// The whole quiz runs client-side (questions sampled locally, answers held in state
+// until the end), so this is about surviving a reload — not a network dependency.
+const LS_KEY = "rahi_assessment_progress";
+
 export default function Assessment() {
   const router = useRouter();
   const [rSteps, setRSteps] = useState<Question[]>(makeRiasec);
@@ -46,6 +51,39 @@ export default function Assessment() {
   const [done, setDone] = useState(false);
   const [saving, setSaving] = useState(false);
   const autoSaved = useRef(false);
+  const [ready, setReady] = useState(false); // true once localStorage has been read
+
+  // Rehydrate an in-progress attempt on mount (client-only). Restores the exact sampled
+  // questions + adaptive path so the user lands back on the question they left off at.
+  /* eslint-disable react-hooks/set-state-in-effect -- one-time localStorage hydration on mount is intentional and SSR-safe */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      const s = raw ? JSON.parse(raw) : null;
+      if (s && Array.isArray(s.history) && s.history.length) {
+        setRSteps(s.rSteps);
+        setESteps(s.eSteps);
+        setHistory(s.history);
+        setPos(s.pos ?? 0);
+        setRz(s.rz ?? {});
+        setAp(s.ap ?? {});
+        setEqA(s.eqA ?? {});
+      }
+    } catch {}
+    setReady(true);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Save progress on every change until the report is generated; clear it once done.
+  // Gated on `ready` (state, not a ref) so the first commit's defaults never clobber
+  // saved data before rehydration has applied.
+  useEffect(() => {
+    if (!ready) return;
+    try {
+      if (done) localStorage.removeItem(LS_KEY);
+      else localStorage.setItem(LS_KEY, JSON.stringify({ rSteps, eSteps, history, pos, rz, ap, eqA }));
+    } catch {}
+  }, [ready, rSteps, eSteps, history, pos, rz, ap, eqA, done]);
 
   // Record every completed attempt to history (device / account) for progress tracking.
   useEffect(() => {
