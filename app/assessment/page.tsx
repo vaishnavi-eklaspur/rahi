@@ -149,6 +149,21 @@ export default function Assessment() {
     setPos(pos + 1);
   };
 
+  // Questions are sampled with Math.random in the useState initializers, so the server
+  // and client would generate different first questions → hydration mismatch. Render a
+  // placeholder until mount (`ready`), when the client owns the questions (fresh or
+  // rehydrated from localStorage) and there's nothing for the server to disagree with.
+  if (!ready) {
+    return (
+      <div className="flex flex-1 flex-col items-center">
+        <main className="flex w-full max-w-2xl flex-1 flex-col px-6 py-12">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-paper-2" />
+          <p className="mt-10 text-sm text-[var(--muted)]">Loading your assessment…</p>
+        </main>
+      </div>
+    );
+  }
+
   if (done) {
     const shareCode = encodeReport({ rz, ap, eqA });
     const btn = "inline-flex h-11 items-center rounded-full px-6 text-sm font-medium transition-colors";
@@ -217,6 +232,7 @@ export default function Assessment() {
             return (
               <button
                 key={c.value}
+                data-testid="choice"
                 onClick={() => answer(c.value)}
                 className={`flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-colors ${
                   selected

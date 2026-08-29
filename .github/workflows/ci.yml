@@ -30,3 +30,23 @@ jobs:
           DATABASE_URL: postgres://user:pass@localhost:5432/db
           BETTER_AUTH_SECRET: ci-build-placeholder-secret-value-0000
           BETTER_AUTH_URL: http://localhost:3000
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # The dev server (and its hermetic DATABASE_URL="") is started by playwright.config.
+      - name: End-to-end (Playwright)
+        run: npm run test:e2e
