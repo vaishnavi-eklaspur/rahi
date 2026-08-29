@@ -12,9 +12,10 @@ import { ENRICHMENT, type Geo, type GeoData } from "@/lib/enrichment";
 import { roadmapFor } from "@/lib/resources";
 import { archetypeFor } from "@/lib/archetype";
 import { pathFor } from "@/lib/exams";
-import { nutshell, defaultPlan } from "@/lib/summary";
+import { nutshell, defaultPlan, strongestApt } from "@/lib/summary";
 import { encodeReport, type Answers } from "@/lib/report-code";
 import Chat from "@/components/Chat";
+import PrintButton from "@/components/PrintButton";
 import RiasecRadar from "@/components/RiasecRadar";
 import PathTimeline from "@/components/PathTimeline";
 import Simulator from "@/components/Simulator";
@@ -95,12 +96,7 @@ export default function Report({
           >
             👪 For parents
           </Link>
-          <button
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 rounded-full border border-hairline px-3.5 py-2 text-sm font-medium text-[var(--muted)] transition-colors hover:border-brand-400 hover:text-foreground"
-          >
-            ⬇ Save as PDF
-          </button>
+          <PrintButton className="inline-flex items-center gap-1.5 rounded-full border border-hairline px-3.5 py-2 text-sm font-medium text-[var(--muted)] transition-colors hover:border-brand-400 hover:text-foreground" />
         </div>
         <p className="rule-pop mb-3 inline-block text-xs font-bold tracking-[0.18em] text-pop-700 dark:text-pop-400 uppercase">
           Your career archetype
@@ -114,7 +110,7 @@ export default function Report({
           {code.map((d) => DIMENSIONS[d].name).join(", ")} · overall EQ{" "}
           <span className="font-semibold text-brand-600 dark:text-brand-400">{pct(eq.overall)}</span> · strongest aptitude{" "}
           <span className="font-semibold text-brand-600 dark:text-brand-400">
-            {APT_DOMAINS[aptOrder.slice().sort((a, b) => apt[b] - apt[a])[0]]}
+            {APT_DOMAINS[strongestApt(apt)]}
           </span>
         </p>
 

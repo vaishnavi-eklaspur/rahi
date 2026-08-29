@@ -7,16 +7,14 @@ export default function RahiBot({
   className = "",
 }: {
   size?: number;
-  mood?: "happy" | "cheer" | "wave" | "think";
+  mood?: "happy" | "cheer" | "wave";
   className?: string;
 }) {
   const CLAY = "#ff6b4a"; // coral accent
   const mouth =
     mood === "cheer"
       ? <path d="M49 66 Q60 77 71 66" stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none" />
-      : mood === "think"
-        ? <path d="M54 69 h12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none" />
-        : <path d="M52 68 Q60 74 68 68" stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none" />;
+      : <path d="M52 68 Q60 74 68 68" stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none" />;
   const wave = mood === "wave" || mood === "cheer";
 
   return (
@@ -43,10 +41,8 @@ export default function RahiBot({
         <path d="M90 52 q10 -4 12 -14" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" fill="none" />
       )}
       {/* eyes */}
-      <circle cx="50" cy={mood === "think" ? 55 : 57} r="3.4" fill="currentColor" />
-      <circle cx="70" cy={mood === "think" ? 55 : 57} r="3.4" fill="currentColor" />
-      {/* think dot */}
-      {mood === "think" && <circle cx="86" cy="40" r="2.4" fill={CLAY} />}
+      <circle cx="50" cy="57" r="3.4" fill="currentColor" />
+      <circle cx="70" cy="57" r="3.4" fill="currentColor" />
       {mouth}
       {/* accent spark */}
       <path

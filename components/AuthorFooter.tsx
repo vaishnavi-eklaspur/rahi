@@ -41,13 +41,10 @@ const SOCIALS = [
   },
 ];
 
-export default function AuthorFooter({
-  productName = "Rahi",
-  tagline = "Next.js · TypeScript · Neon Postgres · Better Auth",
-}: {
-  productName?: string;
-  tagline?: string;
-}) {
+const PRODUCT_NAME = "Rahi";
+const TAGLINE = "Next.js · TypeScript · Neon Postgres · Better Auth";
+
+export default function AuthorFooter() {
   return (
     <footer className="mt-auto border-t border-hairline bg-paper-2 print:hidden">
       <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-6">
@@ -64,7 +61,7 @@ export default function AuthorFooter({
             <span className="block text-xs font-semibold text-foreground transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-400">
               Built by {AUTHOR.name}
             </span>
-            <span className="block text-[11px] text-[var(--muted)]">{tagline}</span>
+            <span className="block text-[11px] text-[var(--muted)]">{TAGLINE}</span>
           </span>
         </a>
 
@@ -87,7 +84,7 @@ export default function AuthorFooter({
 
       <div className="mx-auto w-full max-w-5xl px-5 pb-6 sm:px-6">
         <p className="border-t border-hairline pt-3 text-[11px] text-[var(--muted)]">
-          © {new Date().getFullYear()} {productName} — a portfolio project by {AUTHOR.name}.
+          © {new Date().getFullYear()} {PRODUCT_NAME} — a portfolio project by {AUTHOR.name}.
         </p>
       </div>
     </footer>
