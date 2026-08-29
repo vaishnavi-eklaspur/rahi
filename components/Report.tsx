@@ -108,7 +108,7 @@ export default function Report({
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
           The <span className="marker">{arch.title.replace(/^The /, "")}</span>
         </h1>
-        <p className="mt-3 text-lg text-foreground/90">{arch.tagline}</p>
+        <p className="mt-3 text-base text-foreground/90 sm:text-lg">{arch.tagline}</p>
         <p className="mt-2 text-sm text-[var(--muted)]">
           Holland code <span className="font-semibold text-brand-600 dark:text-brand-400">{code.join("")}</span> ·{" "}
           {code.map((d) => DIMENSIONS[d].name).join(", ")} · overall EQ{" "}
@@ -129,7 +129,7 @@ export default function Report({
             In a nutshell
             {ai.nutshell && <span className="rounded bg-pop-500 px-1.5 py-0.5 text-[10px] tracking-normal text-white normal-case">AI</span>}
           </p>
-          <p className="font-display text-lg leading-7 text-brand-950 dark:text-brand-50">{showNutshell}</p>
+          <p className="font-display text-base leading-7 text-brand-950 dark:text-brand-50 sm:text-lg">{showNutshell}</p>
         </div>
 
         <div className="mt-8 grid gap-4">
@@ -157,7 +157,7 @@ export default function Report({
           </Card>
         </div>
 
-        <div className="mt-14 flex flex-wrap items-end justify-between gap-3">
+        <div className="mt-10 flex flex-wrap items-end justify-between gap-3 sm:mt-14">
           <div>
             <h2 className="text-2xl font-semibold">
               Careers that fit <span className="marker">you</span>
@@ -192,7 +192,7 @@ export default function Report({
         </div>
 
         {showPlan.length > 0 && (
-          <section className="mt-14">
+          <section className="mt-10 sm:mt-14">
             <h2 className="font-display text-2xl font-semibold">
               Your next <span className="marker">90 days</span>
             </h2>

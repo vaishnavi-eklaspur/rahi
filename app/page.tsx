@@ -21,7 +21,7 @@ export default function Home() {
               Find work that fits{" "}
               <span className="marker">the real you</span>.
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-8 text-[var(--muted)]">
+            <p className="mt-6 max-w-xl text-base leading-7 text-[var(--muted)] sm:text-lg sm:leading-8">
               Not a personality quiz that flatters you. Rahi measures three things that
               genuinely decide fit — your interests, aptitude, and emotional strengths —
               then points you to careers, courses, and colleges that actually make sense.
@@ -42,7 +42,7 @@ export default function Home() {
         </section>
 
         {/* pillars — a course syllabus, numbered */}
-        <section className="mt-16 overflow-hidden rounded-2xl border border-hairline">
+        <section className="mt-12 overflow-hidden rounded-2xl border border-hairline sm:mt-16">
           {PILLARS.map((p, i) => (
             <div
               key={p.n}

@@ -59,7 +59,7 @@ export default async function ParentReport({ params }: { params: Promise<{ code:
           For parents & guardians
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{arch.title}</h1>
-        <p className="mt-3 text-lg leading-7 text-foreground/90">{nutshell(hCode, apt, eq.overall)}</p>
+        <p className="mt-3 text-base leading-7 text-foreground/90 sm:text-lg">{nutshell(hCode, apt, eq.overall)}</p>
 
         <Section title="What they enjoy">
           They're naturally drawn to work that is{" "}

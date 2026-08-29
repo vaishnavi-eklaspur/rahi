@@ -26,7 +26,7 @@ export default function Simulator({
   const reset = () => { setApt({ ...baseApt }); setEq(baseEq); };
 
   return (
-    <section className="mt-14">
+    <section className="mt-10 sm:mt-14">
       <h2 className="font-display text-2xl font-semibold">
         Grow your <span className="marker">options</span>
       </h2>
