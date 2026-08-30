@@ -14,6 +14,14 @@ export default function Login() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Where to go after auth: the `next` the middleware set (e.g. /assessment), else
+  // reports. Guard against open redirects — only same-origin paths, never "//host".
+  const dest = () => {
+    if (typeof window === "undefined") return "/reports";
+    const n = new URLSearchParams(window.location.search).get("next");
+    return n && n.startsWith("/") && !n.startsWith("//") ? n : "/reports";
+  };
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
@@ -27,7 +35,7 @@ export default function Login() {
       setErr(res.error.message || "Something went wrong. Please try again.");
       return;
     }
-    router.push("/reports");
+    router.push(dest());
   }
 
   const field =
@@ -48,7 +56,7 @@ export default function Login() {
 
         <div className="rounded-3xl border border-hairline bg-[var(--background)] p-6 shadow-sm">
           <button
-            onClick={() => authClient.signIn.social({ provider: "google", callbackURL: "/reports" })}
+            onClick={() => authClient.signIn.social({ provider: "google", callbackURL: dest() })}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-hairline font-medium transition-colors hover:bg-paper-2"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
