@@ -2,6 +2,7 @@
 // local Ollama in dev (see lib/llm). The server decodes the report code and rebuilds
 // the full profile + top-5 + enrichment as grounding, so facts stay curated.
 import { stream } from "@/lib/llm";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { decodeReport } from "@/lib/report-code";
 import { DIMENSIONS, scoreRiasec, hollandCode, type Dimension } from "@/lib/riasec";
 import { scoreAptitude } from "@/lib/aptitude";
@@ -15,6 +16,7 @@ const RIASEC_ORDER: Dimension[] = ["R", "I", "A", "S", "E", "C"];
 
 const NO_AI = "The AI assistant isn't reachable right now. In the deployed app this needs GEMINI_API_KEY set; locally, make sure Ollama is running. Then reload.";
 const ERR = "Something went wrong — please try again.";
+const RATE_LIMITED = "You're sending messages a little too fast — give it a few seconds and try again.";
 
 const textStream = (body: BodyInit) =>
   new Response(body, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
@@ -62,6 +64,8 @@ ${careerBlocks}`;
 }
 
 export async function POST(req: Request) {
+  // Public endpoint — cap per-IP so nobody can drain the Gemini quota via the chat.
+  if (!rateLimit(`chat:${clientIp(req)}`, 30, 60_000)) return textStream(RATE_LIMITED);
   let answers: ReportAnswers | null = null;
   let turns: { role: "user" | "assistant"; content: string }[] = [];
   try {

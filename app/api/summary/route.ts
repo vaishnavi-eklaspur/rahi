@@ -2,6 +2,7 @@
 // local Ollama in dev (see lib/llm). Returns { nutshell: null, plan: null } when no
 // model answers, so the client keeps its deterministic fallback (lib/summary).
 import { complete } from "@/lib/llm";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 const SYSTEM =
   "You are Rahi, a warm, honest career counsellor talking to a student as \"you\". " +
@@ -24,6 +25,9 @@ function parse(raw: string): { nutshell: string | null; plan: string[] | null } 
 }
 
 export async function POST(req: Request) {
+  // Public endpoint — cap per-IP; on limit return the null shape so the client keeps
+  // its deterministic nutshell + plan.
+  if (!rateLimit(`summary:${clientIp(req)}`, 30, 60_000)) return Response.json({ nutshell: null, plan: null }, { status: 429 });
   try {
     const { profile, top } = await req.json();
 

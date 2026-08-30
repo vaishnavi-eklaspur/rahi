@@ -2,6 +2,7 @@
 // or local Ollama in dev (see lib/llm). Returns { text: null, day: null } when no
 // model answers, so the client keeps the deterministic why and hides the day.
 import { complete } from "@/lib/llm";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 const DIM: Record<string, string> = {
   R: "Realistic", I: "Investigative", A: "Artistic",
@@ -30,6 +31,9 @@ function parse(raw: string): { text: string | null; day: string | null } {
 }
 
 export async function POST(req: Request) {
+  // Public endpoint — cap per-IP so nobody can drain the Gemini quota. On limit we return
+  // the same null shape as any other miss, so the client keeps its deterministic "why".
+  if (!rateLimit(`why:${clientIp(req)}`, 30, 60_000)) return Response.json({ text: null, day: null }, { status: 429 });
   try {
     const { career, profile } = await req.json();
     const interests = (profile.code as string[]).map((d) => DIM[d] ?? d).join(", ");
