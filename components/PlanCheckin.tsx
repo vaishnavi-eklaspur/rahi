@@ -14,6 +14,7 @@ export default function PlanCheckin({ steps, storageKey }: { steps: string[]; st
       const raw = localStorage.getItem(storageKey);
       if (raw) {
         const arr = JSON.parse(raw);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage on mount
         if (Array.isArray(arr)) setChecked(steps.map((_, i) => !!arr[i]));
       }
     } catch {}

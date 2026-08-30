@@ -60,7 +60,7 @@ export default function Home() {
         {/* trust */}
         <p className="mt-10 max-w-2xl text-sm leading-6 text-[var(--muted)]">
           Grounded in real psychometrics — Holland Codes, aptitude reasoning, and
-          Goleman's model of emotional intelligence. Every career comes with real
+          Goleman’s model of emotional intelligence. Every career comes with real
           course, college, and salary information, never invented numbers.
         </p>
       </main>

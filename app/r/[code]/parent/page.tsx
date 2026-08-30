@@ -62,7 +62,7 @@ export default async function ParentReport({ params }: { params: Promise<{ code:
         <p className="mt-3 text-base leading-7 text-foreground/90 sm:text-lg">{nutshell(hCode, apt, eq.overall)}</p>
 
         <Section title="What they enjoy">
-          They're naturally drawn to work that is{" "}
+          They’re naturally drawn to work that is{" "}
           <strong className="font-semibold">{DIMENSIONS[hCode[0]].blurb}</strong>
           {hCode[1] && <> and <strong className="font-semibold">{DIMENSIONS[hCode[1]].blurb}</strong></>}.
         </Section>
