@@ -1,5 +1,13 @@
 import { betterAuth } from "better-auth";
-import { Pool } from "@neondatabase/serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+
+// Route Better Auth's pooled queries over HTTP fetch instead of a WebSocket.
+// On Vercel's serverless runtime, opening a fresh WebSocket per invocation is slow
+// and flaky — it was hanging the signed-in /api/reports request (session lookup),
+// leaving "My reports" stuck on "Loading…". HTTP is the serverless-native path, so
+// session reads become fast and reliable. Multi-statement transactions still use the
+// socket, which is fine — sign-in already works over it.
+neonConfig.poolQueryViaFetch = true;
 
 // Self-hosted auth, running on the app's OWN domain at /api/auth. That makes the
 // session cookie first-party, so login survives ad blockers and third-party-cookie
