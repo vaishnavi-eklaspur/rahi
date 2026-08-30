@@ -5,7 +5,9 @@
 export interface Msg { role: "system" | "user" | "assistant"; content: string }
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+// gemini-flash-latest is an alias that always resolves to the current Gemini Flash
+// model, so this won't 404 when a specific version (e.g. gemini-2.5-flash) is retired.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2";
 
