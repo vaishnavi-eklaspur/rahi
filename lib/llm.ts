@@ -5,9 +5,10 @@
 export interface Msg { role: "system" | "user" | "assistant"; content: string }
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
-// gemini-flash-latest is an alias that always resolves to the current Gemini Flash
-// model, so this won't 404 when a specific version (e.g. gemini-2.5-flash) is retired.
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
+// gemini-flash-lite-latest is a stable alias (won't 404 when a pinned version is
+// retired) for the lighter Flash model — less prone to the 503 "high demand" the
+// full gemini-flash-latest hits on the free tier. Override with GEMINI_MODEL.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-lite-latest";
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2";
 
@@ -16,6 +17,17 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2";
 // (headers); the stream body itself may then run longer.
 const COMPLETE_TIMEOUT_MS = 12_000;
 const STREAM_CONNECT_TIMEOUT_MS = 8_000;
+
+// Retry once on transient overload (429/503) — free-tier Gemini blips usually clear
+// immediately. Shares the caller's AbortSignal, so total time stays bounded.
+async function fetchRetry(url: string, init: RequestInit, attempts = 2): Promise<Response> {
+  let r = await fetch(url, init);
+  for (let i = 1; i < attempts && (r.status === 429 || r.status === 503); i++) {
+    await new Promise((res) => setTimeout(res, 600 * i));
+    r = await fetch(url, init);
+  }
+  return r;
+}
 
 // ---- Gemini ----
 function toGemini(messages: Msg[]) {
@@ -31,7 +43,7 @@ function toGemini(messages: Msg[]) {
 async function geminiComplete(messages: Msg[], opts?: { json?: boolean; temperature?: number }): Promise<string | null> {
   const { system, contents } = toGemini(messages);
   try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`, {
+    const r = await fetchRetry(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -59,7 +71,7 @@ async function geminiStream(messages: Msg[], opts?: { temperature?: number }): P
   const t = setTimeout(() => ac.abort(), STREAM_CONNECT_TIMEOUT_MS);
   let r: Response;
   try {
-    r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_KEY}`, {
+    r = await fetchRetry(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -1,7 +1,8 @@
 // TEMP diagnostic on a fresh path (avoids a poisoned edge cache). Reports env-var
-// presence (boolean) + makes ONE tiny server-side Gemini call, returning only its
-// HTTP status + a redacted error summary. No secret values. REMOVE after debugging.
-// ?model=<name> overrides the model for this probe only (to find an available one).
+// presence (boolean) + probes Gemini server-side, returning only status/redacted
+// errors. No secret values. REMOVE after debugging.
+// ?model=<name> overrides the model for the probe. ?list=1 returns the models this
+// key can actually use (name + whether it supports generateContent).
 export const dynamic = "force-dynamic";
 
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
@@ -10,9 +11,24 @@ function redact(s: string): string {
   return s.replace(/key=[^&\s"]+/gi, "key=REDACTED").slice(0, 300);
 }
 
-async function probeGemini(model: string): Promise<Record<string, unknown>> {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return { ran: false, reason: "GEMINI_API_KEY not set in this environment" };
+async function listModels(key: string) {
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}&pageSize=100`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!r.ok) return { ok: false, httpStatus: r.status, error: redact(await r.text()) };
+    const data = await r.json();
+    const models = (data?.models ?? [])
+      .filter((m: { supportedGenerationMethods?: string[] }) =>
+        m.supportedGenerationMethods?.includes("generateContent"))
+      .map((m: { name?: string }) => m.name?.replace(/^models\//, ""));
+    return { ok: true, generateContentModels: models };
+  } catch (e) {
+    return { ok: false, threw: redact(String(e)) };
+  }
+}
+
+async function probeGemini(model: string, key: string) {
   try {
     const r = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
@@ -31,15 +47,21 @@ async function probeGemini(model: string): Promise<Record<string, unknown>> {
 }
 
 export async function GET(req: Request) {
-  const q = new URL(req.url).searchParams.get("model");
+  const url = new URL(req.url);
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return Response.json({ hasGeminiKey: false, reason: "GEMINI_API_KEY not set" });
+
+  if (url.searchParams.get("list") === "1") {
+    return Response.json({ commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "?", ...(await listModels(key)) });
+  }
+
+  const q = url.searchParams.get("model");
   const model = q && /^[a-zA-Z0-9.\-]{1,60}$/.test(q) ? q : DEFAULT_MODEL;
   return Response.json({
-    hasGeminiKey: !!process.env.GEMINI_API_KEY,
-    geminiModelEnv: process.env.GEMINI_MODEL ?? "(unset -> code default)",
+    hasGeminiKey: true,
     modelUsed: model,
     hasDbUrl: !!process.env.DATABASE_URL,
-    node: process.version,
-    commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "(unknown)",
-    gemini: await probeGemini(model),
+    commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "?",
+    gemini: await probeGemini(model, key),
   });
 }
