@@ -1,12 +1,10 @@
-// TEMP diagnostic — safe: reports env-var presence (boolean) + makes ONE tiny
-// server-side Gemini call and returns only its HTTP status + a redacted error
-// summary. No secret values are ever returned. REMOVE after debugging.
+// TEMP diagnostic on a fresh path (avoids a poisoned edge cache). Reports env-var
+// presence (boolean) + makes ONE tiny server-side Gemini call, returning only its
+// HTTP status + a redacted error summary. No secret values. REMOVE after debugging.
 export const dynamic = "force-dynamic";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
-// Strip anything that could echo the key, defensively (Google errors don't
-// include it, but the request URL does — never surface that).
 function redact(s: string): string {
   return s.replace(/key=[^&\s"]+/gi, "key=REDACTED").slice(0, 300);
 }
@@ -25,13 +23,7 @@ async function probeGemini(): Promise<Record<string, unknown>> {
       },
     );
     const bodyText = await r.text();
-    return {
-      ran: true,
-      httpStatus: r.status,
-      ok: r.ok,
-      // On failure, Google returns { error: { code, status, message } } — surface it (redacted).
-      errorSummary: r.ok ? null : redact(bodyText),
-    };
+    return { ran: true, httpStatus: r.status, ok: r.ok, errorSummary: r.ok ? null : redact(bodyText) };
   } catch (e) {
     return { ran: true, ok: false, threw: redact(String(e)) };
   }
@@ -40,7 +32,7 @@ async function probeGemini(): Promise<Record<string, unknown>> {
 export async function GET() {
   return Response.json({
     hasGeminiKey: !!process.env.GEMINI_API_KEY,
-    geminiModelEnv: process.env.GEMINI_MODEL ?? "(unset → code default)",
+    geminiModelEnv: process.env.GEMINI_MODEL ?? "(unset -> code default)",
     modelUsed: MODEL,
     hasDbUrl: !!process.env.DATABASE_URL,
     node: process.version,
