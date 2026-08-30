@@ -2,7 +2,18 @@ import { test, expect } from "@playwright/test";
 
 const TOTAL = 48;
 
+test("assessment requires login — a logged-out visit redirects to /login", async ({ page }) => {
+  await page.goto("/assessment");
+  await expect(page).toHaveURL(/\/login\?next=%2Fassessment/);
+});
+
 test("full assessment completes and the shared URL re-renders the report", async ({ page }) => {
+  // /assessment is gated by middleware (login compulsory). CI is DB-less, so we can't
+  // mint a real session — stub the Better Auth session cookie so the presence check
+  // passes. The assessment itself runs client-side; this only satisfies the gate.
+  await page.context().addCookies([
+    { name: "better-auth.session_token", value: "e2e-stub-session", url: "http://localhost:3000" },
+  ]);
   await page.goto("/assessment");
 
   // Answer all 48 questions. They're sampled and the aptitude section is adaptive, so we
