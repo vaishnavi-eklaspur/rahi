@@ -241,6 +241,11 @@ Secrets are injected at runtime (container env / mounted Kubernetes `Secret`), n
 into the image — the build stage uses throwaway placeholders. The server listens on `PORT`
 (default 3000) and binds `0.0.0.0`, ready behind a Service/Ingress.
 
+`GET /healthz` is a dependency-free liveness/readiness probe (returns `{"status":"ok"}`) —
+wired as a Docker `HEALTHCHECK` and suitable for Kubernetes `livenessProbe`/`readinessProbe`.
+It deliberately does **not** check the database: the app runs without one, so health means
+"the process is serving", and a DB blip must not evict a working pod.
+
 ## Operational & security posture
 
 Notes for running this as public-facing infrastructure.
