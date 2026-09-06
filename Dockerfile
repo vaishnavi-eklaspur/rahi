@@ -16,11 +16,12 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 # Build-time placeholders — never used at runtime. Module-level init (lib/db, lib/auth)
-# reads these during the build; the orchestrator supplies the real values at runtime.
-ENV DATABASE_URL=postgres://user:pass@localhost:5432/db \
+# reads these during `next build`; the orchestrator supplies real values at runtime. Set
+# inline on the build so they don't persist as image ENV (and don't trip secret linters).
+RUN DATABASE_URL=postgres://user:pass@localhost:5432/db \
     BETTER_AUTH_SECRET=build-placeholder-secret-value-0000 \
-    BETTER_AUTH_URL=http://localhost:3000
-RUN npm run build
+    BETTER_AUTH_URL=http://localhost:3000 \
+    npm run build
 
 # 3. Runtime — only the standalone server + static assets, running as a non-root user
 FROM node:22-alpine AS runner
