@@ -12,6 +12,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Self-contained server bundle (.next/standalone/server.js) so the app runs in a
+  // plain container on any orchestrator (Kubernetes / OpenShift) — no Vercel runtime.
+  output: "standalone",
   // A stray package-lock.json in a parent dir confuses Next's root inference; pin it here.
   turbopack: { root: __dirname },
   async headers() {

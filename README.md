@@ -23,6 +23,9 @@ next steps. Not a personality quiz that flatters you.
   and third-party-cookie blocking.
 - **Graceful degradation** — the app is fully usable with no AI key and no database;
   features light up as services are configured. Upstream AI calls are timeout-bounded.
+- **Portable, not platform-locked** — ships as a multi-stage Docker image built on
+  Next.js `standalone` output, so it runs on any Kubernetes/OpenShift cluster, not just
+  Vercel. CI (lint + type-checked build + Playwright) runs on standard GitHub Actions.
 
 ---
 
@@ -147,7 +150,8 @@ sequenceDiagram
 | Database | Neon Postgres (`@neondatabase/serverless`) |
 | Auth | Better Auth (self-hosted, email + Google OAuth) |
 | AI | Google Gemini (prod) · Ollama (dev) · deterministic fallback |
-| Hosting | Vercel, auto-deploy from `main` |
+| Hosting | Vercel (managed) **or** any container orchestrator (Docker → Kubernetes/OpenShift) |
+| CI | GitHub Actions — lint · type-checked build · Playwright e2e |
 
 ## Repository layout
 
@@ -199,10 +203,73 @@ Domain logic is guarded by a **framework-free self-check** — no test runner, n
 node lib/riasec.selfcheck.ts   # scoring, fusion, adaptive difficulty, encoding round-trip, enrichment coverage
 ```
 
-GitHub Actions runs the self-check and a full type-checked build on every push and pull
-request (`.github/workflows/ci.yml`), so a broken build or failing check blocks the merge.
+CI is **platform-neutral GitHub Actions** (`.github/workflows/ci.yml`), not Vercel's built-in
+pipeline — the same workflow runs anywhere GitLab CI or a self-hosted runner would. On every
+push and pull request it runs, and a failure blocks the merge:
+
+- **Lint** (`eslint`)
+- **Self-check** (`node lib/riasec.selfcheck.ts`) — scoring, fusion, adaptive difficulty, encoding round-trip, enrichment coverage
+- **Type-checked build** (`next build`)
+- **End-to-end** (Playwright, on a real dev server)
 
 ## Deployment
 
-Hosted on Vercel with auto-deploy from `main`. Set the same environment variables in the
-Vercel project (Production), and set `BETTER_AUTH_URL` to the deployed origin.
+Two supported paths from the same codebase.
+
+### Managed (Vercel)
+
+Auto-deploy from `main`. Set the environment variables in the Vercel project (Production),
+with `BETTER_AUTH_URL` set to the deployed origin.
+
+### Container (Kubernetes / OpenShift)
+
+The app builds to Next.js **standalone** output (`output: "standalone"` in `next.config.ts`),
+packaged by a multi-stage [`Dockerfile`](Dockerfile) into a small image that runs as a
+**non-root** user and needs no Vercel runtime — deployable on any raw cluster.
+
+```bash
+docker build -t rahi .
+docker run -p 3000:3000 \
+  -e DATABASE_URL=... \
+  -e BETTER_AUTH_SECRET=... \
+  -e BETTER_AUTH_URL=http://localhost:3000 \
+  -e GEMINI_API_KEY=... \
+  rahi
+```
+
+Secrets are injected at runtime (container env / mounted Kubernetes `Secret`), never baked
+into the image — the build stage uses throwaway placeholders. The server listens on `PORT`
+(default 3000) and binds `0.0.0.0`, ready behind a Service/Ingress.
+
+## Operational & security posture
+
+Notes for running this as public-facing infrastructure.
+
+- **AI integrity — no hallucinated facts.** A hard boundary separates *facts* from *prose*.
+  All reference data (salaries, universities, employers, courses) comes only from curated
+  `lib/enrichment`; the LLM writes narrative around it and is prompt-constrained never to
+  invent specifics. The provider layer (`lib/llm`) is a ladder — Gemini → Ollama →
+  **deterministic templated fallback** — so a wrong or missing API key, a timeout, or a
+  provider outage degrades to verifiable, reproducible output instead of failing or fabricating.
+- **Session state & integrity.** The 48-item adaptive assessment holds all state client-side
+  and checkpoints it to `localStorage` on every answer (the exact sampled questions, the
+  adaptive path, and answers so far). A dropped connection or refresh rehydrates to the exact
+  question the user left off at; nothing is lost, and no half-finished attempt is written
+  server-side. A finished report is a **pure function of its answers**, encoded into the share
+  URL — so results are portable and reproducible with or without the database.
+- **Identity (OAuth2 / OIDC).** Auth is Better Auth, self-hosted at `/api/auth` on the app's
+  own origin (first-party session cookie). Google sign-in is a standard **OAuth 2.0
+  Authorization Code flow** (`/api/auth/callback/google` → code exchanged server-side with the
+  client secret for tokens + profile). This is the same federated-identity model CERN uses via
+  OIDC/eduGAIN, and additional OIDC providers slot into the same `socialProviders` config.
+- **Rate limiting.** The three LLM endpoints (`/api/why`, `/api/summary`, `/api/chat`) are
+  per-IP rate-limited (`lib/rate-limit`, fixed-window). This protects the service on two
+  fronts: DoS resistance, and a hard cap on runaway LLM billing from a single abusive client.
+- **Database connection pooling.** Postgres is Neon accessed via `@neondatabase/serverless`.
+  Auth's pooled queries route over Neon's **connection pooler** with `poolQueryViaFetch`
+  (HTTP fetch instead of a per-invocation WebSocket), which avoids exhausting Postgres
+  connections under concurrent serverless/container load. `DATABASE_URL` should point at
+  Neon's pooled endpoint.
+- **Baseline HTTP hardening.** Security headers on every response (HSTS, `X-Frame-Options:
+  DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`); see
+  `next.config.ts`. Known limitations (e.g. full CSP) are tracked in `SECURITY_AUDIT.md`.
