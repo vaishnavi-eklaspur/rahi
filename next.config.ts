@@ -9,6 +9,11 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // Partial CSP: the directives that harden without a nonce pipeline. Deliberately no
+  // default-src/script-src/style-src — Next injects inline hydration scripts and styles,
+  // so restricting those needs per-request nonces (the documented CSP follow-up). These
+  // four are safe as-is: no <base> hijack, forms/objects locked down, no framing.
+  { key: "Content-Security-Policy", value: "base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'none'" },
 ];
 
 const nextConfig: NextConfig = {

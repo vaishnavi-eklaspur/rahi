@@ -1,0 +1,63 @@
+# Reference Kubernetes / OpenShift manifest for the container image built by ./Dockerfile.
+# Apply with:  kubectl apply -f deploy/k8s.yaml
+#
+# Secrets are NOT in this file (never commit them). Create them out-of-band, e.g.:
+#   kubectl create secret generic rahi-secrets \
+#     --from-literal=DATABASE_URL=... \
+#     --from-literal=BETTER_AUTH_SECRET=... \
+#     --from-literal=BETTER_AUTH_URL=https://rahi.example.org \
+#     --from-literal=GEMINI_API_KEY=...
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rahi
+  labels: { app: rahi }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: rahi }
+  template:
+    metadata:
+      labels: { app: rahi }
+    spec:
+      securityContext:
+        runAsNonRoot: true          # matches the image's non-root `nextjs` user (uid 1001)
+        runAsUser: 1001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: rahi
+          image: rahi:latest        # replace with your registry ref, e.g. ghcr.io/<you>/rahi:<tag>
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef: { name: rahi-secrets }
+          # Explicit requests/limits so the scheduler can place the pod and the kubelet
+          # can cap a runaway process — required hygiene on a shared cluster.
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "512Mi" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            # readOnlyRootFilesystem omitted: Next's standalone server writes its ISR cache
+            # under .next/cache. Enable it only alongside an emptyDir mount for that path.
+          livenessProbe:
+            httpGet: { path: /healthz, port: 3000 }
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet: { path: /healthz, port: 3000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rahi
+  labels: { app: rahi }
+spec:
+  selector: { app: rahi }
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP

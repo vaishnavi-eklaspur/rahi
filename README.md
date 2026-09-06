@@ -246,6 +246,10 @@ wired as a Docker `HEALTHCHECK` and suitable for Kubernetes `livenessProbe`/`rea
 It deliberately does **not** check the database: the app runs without one, so health means
 "the process is serving", and a DB blip must not evict a working pod.
 
+A reference manifest lives at [`deploy/k8s.yaml`](deploy/k8s.yaml) — a Deployment + Service with
+resource requests/limits, the `/healthz` probes, and a non-root pod `securityContext` (secrets
+supplied via a Kubernetes `Secret`, never committed). Apply with `kubectl apply -f deploy/k8s.yaml`.
+
 ## Operational & security posture
 
 Notes for running this as public-facing infrastructure.
