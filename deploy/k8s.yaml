@@ -26,7 +26,9 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: rahi
-          image: rahi:latest        # replace with your registry ref, e.g. ghcr.io/<you>/rahi:<tag>
+          # CI publishes :latest and :<git-sha> to GHCR on each green push to main.
+          # Pin the immutable :<git-sha> tag in a real prod deploy; :latest is for convenience.
+          image: ghcr.io/vaishnavi-eklaspur/rahi:latest
           ports:
             - containerPort: 3000
           envFrom:

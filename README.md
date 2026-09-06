@@ -250,6 +250,11 @@ A reference manifest lives at [`deploy/k8s.yaml`](deploy/k8s.yaml) — a Deploym
 resource requests/limits, the `/healthz` probes, and a non-root pod `securityContext` (secrets
 supplied via a Kubernetes `Secret`, never committed). Apply with `kubectl apply -f deploy/k8s.yaml`.
 
+CI publishes the image to **GitHub Container Registry** on every green push to `main` —
+`ghcr.io/vaishnavi-eklaspur/rahi:latest` plus an immutable `:<git-sha>` tag to pin in production.
+The publish job uses the built-in `GITHUB_TOKEN` (job-scoped `packages: write`), so no external
+registry account or stored secret is involved.
+
 ## Operational & security posture
 
 Notes for running this as public-facing infrastructure.
