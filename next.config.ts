@@ -12,9 +12,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // Self-contained server bundle (.next/standalone/server.js) so the app runs in a
-  // plain container on any orchestrator (Kubernetes / OpenShift) — no Vercel runtime.
-  output: "standalone",
+  // Self-contained server bundle (.next/standalone/server.js) for the container image,
+  // so the app runs on any orchestrator (Kubernetes / OpenShift) with no Vercel runtime.
+  // Skipped on Vercel — its own build packages output and standalone's file-tracing
+  // collides with it (missing .nft.json). The Dockerfile build (VERCEL unset) gets it.
+  output: process.env.VERCEL ? undefined : "standalone",
   // A stray package-lock.json in a parent dir confuses Next's root inference; pin it here.
   turbopack: { root: __dirname },
   async headers() {
