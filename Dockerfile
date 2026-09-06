@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # Multi-stage build producing Next.js's standalone output — a small, self-contained
 # runner image that runs on any container orchestrator (Kubernetes / OpenShift) with
 # no dependency on Vercel's platform. Secrets are injected at runtime by the
@@ -28,7 +26,6 @@ RUN npm run build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
-    NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
