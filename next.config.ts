@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
   // Skipped on Vercel — its own build packages output and standalone's file-tracing
   // collides with it (missing .nft.json). The Dockerfile build (VERCEL unset) gets it.
   output: process.env.VERCEL ? undefined : "standalone",
+  // Don't advertise the framework. Vercel's edge already strips this header; setting it
+  // here also covers the container/Kubernetes path, where Next would otherwise send it.
+  poweredByHeader: false,
   // A stray package-lock.json in a parent dir confuses Next's root inference; pin it here.
   turbopack: { root: __dirname },
   async headers() {

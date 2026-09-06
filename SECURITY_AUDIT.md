@@ -1,8 +1,8 @@
 # Security & Production-Readiness Audit — Rahi
 
-**Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Neon Postgres · Better Auth (self-hosted) · Gemini (LLM)
-**Date:** 2026-08-29
-**Scope:** Static review of the working tree, full git-history secret scan, dependency audit, and a production build. This documents what was tested and what was addressed. It does not claim the app is "secure" — no such claim can be made.
+**Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Neon Postgres · Better Auth (self-hosted) · Google Gemini (LLM)
+**Date:** 2026-09-06
+**Scope:** Static review of the working tree, full git-history secret scan, dependency audit (`npm audit`), a production build, and a review of the container/CI configuration. This documents what was tested and what was addressed. It does **not** claim the app is "secure" or "leakproof" — no such claim can be made; it records specific checks and specific changes.
 
 ---
 
@@ -10,70 +10,96 @@
 
 | # | Category | Finding | Severity | Status |
 |---|----------|---------|----------|--------|
-| 1 | Secrets & credentials | No `.env` ever committed; history holds only placeholder connection strings; all secrets read from env | — | **Pass** |
-| 2 | Dependency vulns | 5 high (transitive: `postcss` ×3, `sharp`, `nanoid`) via `next@16.2.12` | High | **Fixed** |
-| 3 | Auth & sessions | Password hashing (scrypt), cookie flags, and auth rate-limiting are Better Auth defaults; DB-backed sessions, no JWT | Low | **Pass** |
-| 3b | IDOR | Ownership checked via session `user_id`; anon path keyed on a random-UUID device token | Low | **Flagged** |
-| 4 | SQL injection | Parameterized tagged-template queries everywhere; no string-built SQL | — | **Pass** |
-| 4b | XSS / eval / cmd injection | No `dangerouslySetInnerHTML`, `eval`, `child_process`; React auto-escapes LLM output | — | **Pass** |
-| 4c | SSRF | Outbound requests target a hardcoded Gemini host + env-set Ollama only; no user-controlled URLs | — | **Pass** |
-| 5 | Security headers | Baseline headers were absent | Medium | **Fixed** |
-| 5b | Rate limiting (AI endpoints) | `/api/chat`, `/api/summary`, `/api/why` are unauthenticated + uncapped | Medium | **Flagged** |
-| 5c | CORS / HTTPS | Same-origin only (no CORS headers); HTTPS + HSTS enforced | — | **Pass** |
-| 6 | Errors & logging | Generic client errors, no stack traces, no PII/secret logging | — | **Pass** |
-| 7 | Data protection | Neon encrypts at rest; DB role is not least-privilege | Low | **Flagged** |
-| 8 | Config & deploy hygiene | dev/CI/prod configs separated; `.gitignore` complete; README clean | — | **Pass** |
-| 9 | Code-quality signals | Playwright E2E + node self-checks + CI on push; lint not gated; thin unit coverage | Low | **Flagged** |
+| 1 | Secrets & credentials | No `.env` ever committed; history holds only placeholder connection strings; every secret read from `process.env`, no baked-in defaults | — | **Pass** |
+| 2 | Dependency vulnerabilities | `npm audit` → **0 vulnerabilities** (5 earlier high advisories, all transitive via Next, cleared by a same-major bump to `next@16.3.3`) | — | **Pass** |
+| 3 | Auth & sessions | scrypt password hashing, DB-backed sessions, `HttpOnly`/`Secure`/`SameSite=Lax` cookie, no JWT; assessment now login-gated, and data routes validate the session **server-side** | Low | **Pass** |
+| 3b | IDOR / BOLA | Authenticated reads scoped to session `user_id`; anonymous path is a bearer-capability model keyed on a random device UUID | Low | **Flagged** |
+| 4 | SQL injection | Neon parameterized tagged-template queries everywhere; no string-concatenated SQL | — | **Pass** |
+| 4b | XSS / eval / cmd injection | No `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `new Function`, or `child_process`; React auto-escapes streamed LLM text | — | **Pass** |
+| 4c | SSRF | Outbound calls target a hardcoded Gemini host + an env-set Ollama URL only; no user-controlled request targets | — | **Pass** |
+| 5 | Security headers | Baseline headers present (`nosniff`, `X-Frame-Options: DENY`, HSTS, `Referrer-Policy`, `Permissions-Policy`); full CSP still absent | Low | **Pass / Flagged** |
+| 5b | Rate limiting | Per-IP fixed-window limiter added to the three public LLM endpoints; best-effort per instance on serverless | Medium | **Fixed** |
+| 5c | CORS / HTTPS | Same-origin only (no `Access-Control-Allow-Origin`); HTTPS + HSTS enforced | — | **Pass** |
+| 6 | Errors & logging | Generic client errors, no stack traces, no PII/secret logging; the only `console.log` is a dev self-check | — | **Pass** |
+| 7 | Data protection | Neon encrypts at rest; DB role is not least-privilege; PII stored is minimal (email/name + non-sensitive assessment answers) | Low | **Flagged** |
+| 8 | Config & deploy hygiene | dev/CI/prod configs separated; `.gitignore` + `.dockerignore` complete; README carries no live secrets | — | **Pass** |
+| 9 | Code-quality signals | Playwright E2E + node self-checks + CI (lint now gated) on every push; 29-commit real history; thin unit coverage | Low | **Pass / Flagged** |
+| 10 | Container & infra hygiene | Non-root runtime user, pinned base image, `.dockerignore` present; no committed K8s/compose resource limits | Low | **Pass / Flagged** |
+| 11 | Frontend & build-time secrets | No `NEXT_PUBLIC_*` vars exist → no secret compiled into the bundle; production source maps not enabled | — | **Pass** |
+| 12 | Business logic & data integrity | Explicit-column inserts (no mass assignment); `user_id` from session, never the client body; idempotent save with slug-collision retry | Low | **Pass** |
+| 13 | Dependency & repo integrity | `package-lock.json` committed; CI installs via `npm ci`; GitHub Actions token scoped to `contents: read` | — | **Pass** |
+| 14 | Vibecoding artifact sweep | No `TODO`/`FIXME` debt, no dead duplicate components, no "Claude/ChatGPT/AI-generated" strings in code or history | — | **Pass** |
+| 15 | Misc production leaks | No Swagger/GraphQL introspection; open-redirect-guarded login; no file uploads; `X-Powered-By` stripped; `/healthz` leaks nothing | — | **Pass** |
 
 ---
 
-## What was fixed
+## What was fixed / addressed
 
-### 2 — Dependency vulnerabilities (High → resolved)
-**What was wrong:** `npm audit` reported 5 high-severity advisories, all in transitive dependencies pulled in by `next@16.2.12`: three `postcss` source-map path-traversal issues, a `sharp`/libvips image-processing chain (CVE-2026-33327 and siblings), and a `nanoid` infinite-loop-on-zero-size issue.
-**Why it matters:** Even transitive vulnerabilities ship in the deployed bundle. The `sharp` chain is the loudest on paper, though its real exposure here is low (see Known Limitations #7). Leaving known-high advisories unaddressed is the first thing a reviewer greps for.
-**Fix applied:** Bumped `next` and `eslint-config-next` from `16.2.12` → `16.3.3` (a patch-level move inside the same major, so no breaking-change risk) and ran `npm audit fix` for `nanoid`. Post-fix: **0 vulnerabilities**, and `npm run build` still compiles all 15 routes.
-**Interview explanation:** *"The audit flagged five high-severity issues, every one of them transitive through Next itself rather than a dependency I chose directly. I upgraded Next within the same major version — a safe patch bump, not a breaking upgrade — which cleared four of them, and a standard `audit fix` cleared the last. I re-ran the audit to confirm zero remaining and rebuilt to confirm the upgrade didn't break anything, rather than trusting the tool's summary."*
+### 5b — Rate limiting on the public LLM endpoints (Medium)
+**What was wrong:** `/api/why`, `/api/summary`, and `/api/chat` are unauthenticated and each call a paid LLM. Uncapped, a single scripted client could both run up the Gemini bill and degrade the service for everyone.
+**Fix applied:** A per-IP fixed-window limiter (`lib/rate-limit.ts`, 30 requests/60s per endpoint) now guards all three routes; over the limit they return the same null/fallback shape the client already handles, so the UX degrades gracefully rather than erroring.
+**Honest caveat:** the limiter is in-memory. On Vercel's serverless model, instances don't share memory, so this is **best-effort per instance** — it fully caps a client that keeps hitting one warm instance, and it's completely correct on a single-replica container deploy, but a distributed attacker spread across many cold starts isn't bounded by it. The robust cross-instance version needs a shared store (Upstash Redis / Vercel KV); that's the documented upgrade path.
+**Interview explanation:** *"The three AI endpoints are public and cost money per call, so I added a per-IP fixed-window rate limiter that returns the graceful fallback instead of an error when tripped. I'm deliberately clear about its ceiling: it's in-memory, so on serverless it's per-instance rather than global — it stops the obvious single-client abuse and is exact on a single-replica container, but true distributed limiting would need a shared Redis/KV store. I'd rather ship an honest best-effort control and name its limit than pretend an in-memory limiter is a global one."*
 
-### 5 — Missing security headers (Medium → resolved)
-**What was wrong:** Next.js sends no security response headers by default. Requests came back without `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, HSTS, or `Permissions-Policy`.
-**Why it matters:** No `X-Frame-Options`/`frame-ancestors` means the app can be iframed into a clickjacking page. No `nosniff` lets a browser MIME-sniff a response into an unexpected content type. No HSTS lets a first request downgrade to plaintext HTTP.
-**Fix applied:** Added a `headers()` block in [`next.config.ts`](next.config.ts) applying to every route: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, and a `Permissions-Policy` denying camera/microphone/geolocation (features the app never uses). A full Content-Security-Policy was deliberately **not** added here (see Known Limitations #2).
-**Interview explanation:** *"Next doesn't add security headers on its own, so I set a baseline in the config: deny framing to stop clickjacking, `nosniff` to stop MIME-type confusion, a conservative referrer policy, HSTS to lock the site to HTTPS, and a permissions policy that turns off device APIs the app doesn't use. I stopped short of a full CSP on purpose — doing CSP properly with Next's inline styles and the OG-image renderer needs a nonce pipeline, and a careless CSP silently breaks the page, so I flagged it as follow-up rather than shipping a broken one."*
+### 9 / 13 — CI gate hardening
+**What was wrong:** Lint wasn't in the CI gate (three pre-existing lint errors were being tolerated), and the GitHub Actions workflow had no `permissions:` block, so its `GITHUB_TOKEN` defaulted to broad write access it never needs.
+**Fix applied:** Cleared the lint errors and added `npm run lint` to the build job, so lint failures now block merges. Added a top-level `permissions: contents: read` to `.github/workflows/ci.yml`, scoping the token to read-only.
+**Interview explanation:** *"CI ran the build and tests but not lint, and its token was write-all by default. I fixed the outstanding lint issues and made lint a required check, then scoped the Actions token down to `contents: read` — the pipeline only needs to read the repo to test it, so there's no reason to hand it write permissions a compromised action could abuse."*
+
+### 15 / 10 — Framework version disclosure (`X-Powered-By`)
+**What was wrong:** Next.js sends `X-Powered-By: Next.js` by default. Vercel's edge strips it in production, but the app now also ships as a container (Kubernetes/OpenShift), where nothing would strip it — leaking the framework to anyone reading response headers.
+**Fix applied:** Set `poweredByHeader: false` in `next.config.ts`, so the header is gone on **both** the Vercel and container deployment paths.
+**Interview explanation:** *"Version/framework banners give an attacker a free hint about what to target. Vercel already stripped `X-Powered-By`, but once I containerized the app that stripping no longer applies, so I turned the header off at the framework level to cover both deployment targets."*
+
+### 2 — Dependency vulnerabilities (earlier fix, re-verified)
+**What was wrong:** `npm audit` had reported 5 high-severity advisories, all transitive through `next@16.2.12` (three `postcss` path-traversal issues, a `sharp`/libvips chain, a `nanoid` issue).
+**Fix applied:** Bumped `next`/`eslint-config-next` to `16.3.3` (same-major patch move, no breaking change) and ran `npm audit fix`. **Re-verified this pass: `npm audit` → 0 vulnerabilities**, and the production build still compiles all routes.
+**Interview explanation:** *"Every high was transitive through Next itself, so a same-major version bump cleared them without a breaking upgrade. I re-ran the audit during this review to confirm it's still zero rather than trusting the earlier result."*
+
+### 5 — Security headers (earlier fix, still in place)
+**What:** `next.config.ts` sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security` (2-year, `includeSubDomains; preload`), and a `Permissions-Policy` denying camera/mic/geolocation. A full CSP is deliberately deferred (see Known Limitations).
 
 ---
 
 ## What passed (verified, no change needed)
 
-- **Secrets (Cat 1):** A full-history scan (`git log --all -p`) found no committed `.env` and no real credentials — only placeholder strings (`user:pass@localhost`, `USER:PASSWORD@HOST`) in the CI config and `.env.example`. Every secret (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_*`, `GEMINI_API_KEY`) is read from `process.env` with no real value baked in as a default. `.env*` is git-ignored with an `!.env.example` opt-in. **No key rotation or history scrub is required.**
-- **SQL injection (Cat 4):** Every query uses Neon's `sql\`…\`` tagged template, which sends `${…}` as bound parameters, never string concatenation — checked across `save`, `reports`, `r/[code]`, and the OG image route.
-- **XSS / command injection (Cat 4):** No `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `new Function`, or `child_process` anywhere in the codebase. Streamed LLM text is rendered as a React text node (`{m.content}`), which is auto-escaped.
-- **SSRF (Cat 4):** The only outbound requests go to a hardcoded `generativelanguage.googleapis.com` host and an env-configured Ollama URL. No request target is derived from user input.
-- **Auth & sessions (Cat 3):** Passwords are hashed with scrypt (Better Auth default — salted and memory-hard, not plaintext/MD5/SHA1). Sessions are database-backed via a signed, `HttpOnly`, `SameSite=Lax`, `Secure`-in-production cookie — no JWT and no sensitive data in any token. Better Auth's built-in rate limiter covers the auth endpoints in production.
-- **Errors & logging (Cat 6):** API routes return generic messages (`"Something went wrong"`, `{ slug: null }`) and never leak stack traces; production Next does the same by default. The only `console.log` in the codebase is in a dev-only self-check script — no PII or secrets are logged.
-- **CORS / HTTPS (Cat 5):** No route sets `Access-Control-Allow-Origin`, so the API is same-origin only — there is no `*`-with-credentials misconfiguration. Vercel enforces HTTPS at the edge, now backed by the HSTS header.
-- **Config hygiene (Cat 8):** Real secrets live in Vercel; CI uses throwaway placeholders; `.env.example` documents the shape with obvious non-secrets. `.gitignore` covers `node_modules`, `.env*`, `.next`, build output, `*.pem`, `.vercel`, and Playwright artifacts.
-- **Code-quality signals (Cat 9):** There is a Playwright E2E test driving the full 48-question assessment through to a shared report, plus node self-checks for the scoring/encoding logic, both run by GitHub Actions on every push and PR. Commit history is a real progression of nine messages, not a single squashed "final commit."
+- **Secrets (Cat 1):** Full-history scan found no committed `.env` and no real credentials — only placeholders (`user:pass@localhost`, `USER:PASSWORD@HOST`) in CI/`.env.example`. All secrets read from `process.env` with no baked-in default. `.env*` is git-ignored (`!.env.example` opt-in) and `.dockerignore` keeps `.env*` out of the image. **No key rotation or history scrub required.**
+- **Auth & sessions (Cat 3):** Passwords hashed with scrypt (Better Auth default — salted, memory-hard). Sessions are DB-backed via a `HttpOnly`, `SameSite=Lax`, `Secure`-in-prod cookie; no JWT, no sensitive data in any token. The `/assessment` route is login-gated by `proxy.ts` (optimistic cookie-presence check), and — importantly — the data routes (`/api/save`, `/api/reports`) independently validate the session **server-side** via `auth.api.getSession()`, so the gate is convenience, not the security boundary.
+- **SQL injection (Cat 4):** Every query uses Neon's `sql\`…\`` tagged template (bound `${…}` parameters), checked across `save`, `reports`, `r/[code]`, and the OG-image route. No string-built SQL.
+- **XSS / cmd injection (Cat 4):** No `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `new Function`, or `child_process` anywhere. Streamed LLM text renders as a React text node (auto-escaped).
+- **SSRF (Cat 4):** Outbound requests go only to a hardcoded `generativelanguage.googleapis.com` and an env-set Ollama URL — never a user-supplied target.
+- **CORS / HTTPS (Cat 5):** No route sets `Access-Control-Allow-Origin`, so the API is same-origin only (no `*`-with-credentials footgun). HTTPS + HSTS enforced.
+- **Errors & logging (Cat 6):** Routes return generic shapes (`"Something went wrong"`, `{ slug: null }`) and never leak stack traces; production Next hides them by default. The only `console.log` is in the dev-only self-check script — no PII/secrets logged.
+- **Data protection (Cat 7):** Neon encrypts at rest. PII stored is minimal: email + display name (auth tables) and non-sensitive career-assessment answers; a report is a pure function of its answers and is shareable by design.
+- **Config hygiene (Cat 8):** Real secrets live in Vercel; CI and Docker builds use throwaway placeholders; `.env.example` documents shape only. `.gitignore` covers `node_modules`, `.env*`, `.next`, build output, `*.pem`, `.vercel`, Playwright artifacts; `.dockerignore` excludes `.git`, `.env*`, `node_modules`.
+- **Code-quality signals (Cat 9):** Playwright E2E drives the full 48-question flow to a shared report; node self-checks cover scoring/encoding; GitHub Actions runs lint + self-check + build + E2E on every push/PR. Commit history is a real 29-commit progression, not a squashed "final commit."
+- **Container hygiene (Cat 10):** The `Dockerfile` runs as a non-root user (`USER nextjs`, uid 1001), pins its base image (`node:22-alpine`, not `latest`), and a `.dockerignore` keeps `.git`/`.env`/`node_modules` out of the image.
+- **Frontend secrets (Cat 11):** There are **no** `NEXT_PUBLIC_*` variables, so nothing secret is compiled into the client bundle. Production browser source maps are not enabled (Next default off).
+- **Business logic (Cat 12):** Inserts name explicit columns; `user_id` is taken from the validated session, never from the request body, so there's no mass-assignment/`is_admin`-style over-posting. Re-saving a report is idempotent (returns the existing slug), and slug generation retries on collision. No payment/booking/inventory surface exists to race.
+- **Repo integrity (Cat 13):** `package-lock.json` is committed and CI installs with `npm ci` (locked, reproducible), not a fresh resolve. Actions token scoped to `contents: read`.
+- **Vibecoding sweep (Cat 14):** No `TODO`/`FIXME`/"your code here" placeholders, no duplicate/dead components, and no "Claude/ChatGPT/AI-generated" strings in shipped code or commit messages.
+- **Misc leaks (Cat 15):** No Swagger/OpenAPI or GraphQL introspection surface exists. The login redirect is open-redirect-guarded (same-origin `next` only). There are no file-upload endpoints. `/healthz` returns only `{"status":"ok"}` — no version, stack trace, or environment detail.
 
 ---
 
 ## Known Limitations (not fixed — by scope or decision)
 
-1. **No rate limiting on the AI endpoints.** `/api/chat`, `/api/summary`, and `/api/why` are unauthenticated and call a paid LLM. On Vercel's serverless model an in-memory limiter is useless — instances don't share memory — so a real fix needs a shared store (Upstash Redis or Vercel KV). I chose to flag this rather than ship an in-memory limiter that looks like protection but isn't. *Risk: cost/abuse if the endpoint is scripted.*
-2. **No full Content-Security-Policy.** Baseline headers are in place, but a real CSP requires a nonce pipeline for Next's inline styles/scripts and the `next/og` renderer, plus per-route testing to avoid silently breaking rendering. Deferred deliberately.
-3. **Database role is not least-privilege.** The `DATABASE_URL` uses Neon's default owner-level role. A hardened setup would use a role scoped to `SELECT/INSERT` on the `reports` table (and the Better Auth tables). Acceptable for a portfolio app; noted as the upgrade path.
-4. **Lint is not in the CI gate.** Three pre-existing lint errors exist; lint was kept out of the required checks so builds stay green. The honest fix is to clear them, then add `npm run lint` to CI.
-5. **Thin unit-test coverage.** E2E and self-checks exist, but the pure scoring modules (`riasec`, `aptitude`, `eq`, `careers`) would benefit from direct unit tests.
-6. **No startup assertion for required env vars.** A missing `DATABASE_URL` or `BETTER_AUTH_SECRET` fails at request time rather than at boot. A fail-fast check on startup would surface misconfiguration sooner.
-7. **`sharp` advisory has low real exposure here.** It was patched anyway, but the app never processes user-uploaded images — OG images are text-only via `next/og`, and other images are static SVGs — so the libvips CVEs had little attack surface to begin with.
-8. **Gemini API key travels as a URL query parameter.** This is Google's documented REST auth mechanism and happens server-to-server over HTTPS, so the key is never exposed to the client. Switching to header-based/Vertex auth would keep it out of any upstream request logs.
-9. **Anonymous "My reports" is a bearer-capability model.** Without login, reports are listed by a `crypto.randomUUID()` device id stored in `localStorage`. Anyone holding that UUID could list that device's reports — but the data is non-sensitive career-assessment results that are shareable by design, so the risk is low.
+1. **Rate limiter is in-memory (per-instance on serverless).** Meaningful against single-client abuse and exact on a single-replica container, but not a global limit across Vercel instances. Robust fix = shared store (Upstash Redis / Vercel KV). *See fix note 5b.*
+2. **No full Content-Security-Policy.** Baseline headers are in place, but a real CSP needs a nonce pipeline for Next's inline styles/scripts and the `next/og` renderer, plus per-route testing to avoid silently breaking rendering. Deferred deliberately.
+3. **Database role is not least-privilege.** `DATABASE_URL` uses Neon's default owner-level role. A hardened setup would scope a role to `SELECT/INSERT` on the `reports` + Better Auth tables. Acceptable for a portfolio app; noted as the upgrade path.
+4. **Anonymous "My reports" is a bearer-capability model.** Without login, reports are listed by a `crypto.randomUUID()` device id in `localStorage`; anyone holding that UUID could list that device's reports. The data is non-sensitive, shareable-by-design career results, so the risk is low.
+5. **Thin unit-test coverage.** E2E + self-checks exist, but the pure scoring modules (`riasec`, `aptitude`, `eq`, `careers`) would benefit from direct unit tests.
+6. **No startup assertion for required env vars.** A missing `DATABASE_URL`/`BETTER_AUTH_SECRET` fails at request time, not at boot. A fail-fast startup check would surface misconfiguration sooner.
+7. **No committed resource limits for orchestration.** There's no Compose/Kubernetes manifest in the repo, so CPU/memory `requests`/`limits` aren't declared here — they belong in the Deployment manifest when the image is actually orchestrated. The base image is pinned to a tag, not a digest; pin the digest for fully reproducible builds.
+8. **Gemini API key travels as a URL query parameter.** This is Google's documented REST auth mechanism, server-to-server over HTTPS, so the key never reaches the client. Header-based/Vertex auth would additionally keep it out of any upstream request logs.
+9. **Container image not yet built/run in this review.** `next build` was verified to emit the standalone `server.js` the Dockerfile depends on, but an end-to-end `docker build` + `docker run` smoke test still needs one manual pass (Docker daemon wasn't available during the audit).
 
 ---
 
 ## Manual follow-ups for the maintainer
 
-- **Secrets:** none required — history is clean, so there is nothing to scrub with BFG/filter-repo and no leaked key to rotate.
+- **Secrets:** none required — history is clean, nothing to scrub with BFG/filter-repo, no leaked key to rotate.
 - **Re-verify the dependency fix yourself:** `npm audit` should print `found 0 vulnerabilities`.
-- **Verify the headers at runtime after deploy:** `curl -I https://rahi-fawn.vercel.app` and confirm the five headers above are present.
-- **Verify cookie flags:** in browser DevTools → Application → Cookies, confirm the Better Auth session cookie shows `HttpOnly`, `Secure`, and `SameSite=Lax`.
+- **Verify headers at runtime after deploy:** `curl -I https://rahi-fawn.vercel.app` — confirm the five security headers are present and `X-Powered-By` is absent.
+- **Verify cookie flags:** DevTools → Application → Cookies — the Better Auth session cookie should show `HttpOnly`, `Secure`, `SameSite=Lax`.
+- **Smoke-test the container once:** `docker build -t rahi . && docker run --rm -p 3000:3000 -e BETTER_AUTH_URL=http://localhost:3000 -e BETTER_AUTH_SECRET=dev-smoke-secret rahi`, then open `/healthz` and `/`.
