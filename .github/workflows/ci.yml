@@ -26,8 +26,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Self-checks (scoring, fusion, encoding round-trip)
-        run: node lib/riasec.selfcheck.ts
+      - name: Tests (self-check + unit)
+        run: npm test
 
       - name: Type-check & build
         run: npm run build
