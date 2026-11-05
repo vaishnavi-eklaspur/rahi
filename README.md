@@ -26,9 +26,18 @@ career conversation, and is explicit about what it measures and where its limits
 
 ## Screenshots
 
-The quickest way to see Rahi in action is the **[live demo](https://rahi-fawn.vercel.app)**.
-Static screenshots can be added under `docs/screenshots/`; contributions that keep them
-current as the UI evolves are welcome.
+Captured from the running app with synthetic answers (no personal data). The quickest way
+to explore is still the **[live demo](https://rahi-fawn.vercel.app)**.
+
+| Home | Adaptive assessment |
+|------|---------------------|
+| ![Rahi home page](docs/screenshots/01-home.png) | ![Adaptive assessment question](docs/screenshots/03-assessment.png) |
+
+**Career report** — ranked matches with a fit breakdown, skills, a free-resource roadmap,
+entrance-exam paths, a "what if I improve X" simulator, and a 90-day plan, all grounded in
+curated data:
+
+![Rahi career report](docs/screenshots/04-report.png)
 
 ---
 
@@ -220,11 +229,12 @@ redirect URI.
 
 ## Testing & CI
 
-Domain logic is guarded by a **framework-free self-check** — no test runner, no fixtures —
-and user flows by Playwright:
+Domain logic is guarded by a **framework-free self-check**, API routes and the AI
+fallback by **Vitest** unit/integration tests, and user flows by **Playwright**:
 
 ```bash
-npm test          # self-check: scoring, fusion, adaptive difficulty, encoding round-trip, enrichment
+npm test          # self-check (scoring/fusion/encoding) + Vitest (API validation, privacy, AI fallback)
+npm run test:unit # just the Vitest suite
 npm run test:e2e  # Playwright end-to-end (drives the full 48-question flow to a report)
 ```
 
@@ -233,7 +243,7 @@ pipeline — the same workflow runs anywhere GitLab CI or a self-hosted runner w
 push and pull request it runs, and a failure blocks the merge:
 
 - **Lint** (`npm run lint`)
-- **Self-check** (`npm test`) — scoring, fusion, adaptive difficulty, encoding round-trip, enrichment coverage
+- **Tests** (`npm test`) — framework-free self-check (scoring, fusion, adaptive difficulty, encoding, enrichment) + Vitest (API validation, error handling, report-ownership/privacy, AI fallback)
 - **Type-checked build** (`npm run build`)
 - **End-to-end** (`npm run test:e2e`, Playwright on a real dev server)
 
