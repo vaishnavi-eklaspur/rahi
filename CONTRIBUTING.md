@@ -67,7 +67,8 @@ at a Postgres database and create the schema:
 | `npm run build` | Production build (type-checks as part of the build) |
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint |
-| `npm test` | Framework-free self-check for scoring, fusion, adaptive difficulty, and encoding |
+| `npm test` | Self-check (scoring/fusion/encoding) + Vitest suite (API validation, privacy, AI fallback) |
+| `npm run test:unit` | Just the Vitest unit/integration suite (`tests/`) |
 | `npm run test:e2e` | Playwright end-to-end tests |
 
 ## Reproducing CI locally
@@ -87,6 +88,9 @@ npm run test:e2e
 - The domain logic in `lib/` (scoring, fusion, sampling, encoding) is guarded by a
   framework-free self-check (`lib/riasec.selfcheck.ts`, run via `npm test`). If you
   change that logic, add or update an assertion there.
+- API route handlers, report-ownership/privacy boundaries, and the AI fallback are
+  covered by Vitest (`tests/`, run via `npm run test:unit`). Mock the database, auth,
+  and LLM provider — tests must not need production credentials or a live network.
 - User-facing flows are covered by Playwright (`e2e/`). If you change a flow, keep the
   e2e green and add a case for new behavior.
 - Bug fixes should come with a regression check that would have caught the bug.
