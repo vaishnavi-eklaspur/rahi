@@ -1,11 +1,34 @@
 # Rahi
 
-An AI career-counselling web app for students. It measures the three things that
+> Helping students discover their strengths and explore meaningful career pathways.
+
+An AI-powered career-guidance web app for students. It measures the three things that
 actually decide fit — **interests, aptitude, and emotional strengths** — then turns
 them into an honest, evidence-backed report of careers, courses, entrance exams, and
 next steps. Not a personality quiz that flatters you.
 
-**Live:** https://rahi-fawn.vercel.app
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/vaishnavi-eklaspur/rahi/actions/workflows/ci.yml/badge.svg)](https://github.com/vaishnavi-eklaspur/rahi/actions/workflows/ci.yml)
+
+- **Live demo:** https://rahi-fawn.vercel.app
+- **Repository:** https://github.com/vaishnavi-eklaspur/rahi
+
+---
+
+## The problem & who it's for
+
+Most students choose a direction with very little structured insight into their own
+interests, aptitudes, and working style — and the "career quizzes" that do exist tend to
+flatter rather than inform, often inventing specifics. Rahi is built for **students and
+early-career explorers**, and the parents, teachers, and counsellors who support them. It
+turns a short, structured assessment into an honest, evidence-backed starting point for a
+career conversation, and is explicit about what it measures and where its limits are.
+
+## Screenshots
+
+The quickest way to see Rahi in action is the **[live demo](https://rahi-fawn.vercel.app)**.
+Static screenshots can be added under `docs/screenshots/`; contributions that keep them
+current as the UI evolves are welcome.
 
 ---
 
@@ -197,20 +220,22 @@ redirect URI.
 
 ## Testing & CI
 
-Domain logic is guarded by a **framework-free self-check** — no test runner, no fixtures:
+Domain logic is guarded by a **framework-free self-check** — no test runner, no fixtures —
+and user flows by Playwright:
 
 ```bash
-node lib/riasec.selfcheck.ts   # scoring, fusion, adaptive difficulty, encoding round-trip, enrichment coverage
+npm test          # self-check: scoring, fusion, adaptive difficulty, encoding round-trip, enrichment
+npm run test:e2e  # Playwright end-to-end (drives the full 48-question flow to a report)
 ```
 
 CI is **platform-neutral GitHub Actions** (`.github/workflows/ci.yml`), not Vercel's built-in
 pipeline — the same workflow runs anywhere GitLab CI or a self-hosted runner would. On every
 push and pull request it runs, and a failure blocks the merge:
 
-- **Lint** (`eslint`)
-- **Self-check** (`node lib/riasec.selfcheck.ts`) — scoring, fusion, adaptive difficulty, encoding round-trip, enrichment coverage
-- **Type-checked build** (`next build`)
-- **End-to-end** (Playwright, on a real dev server)
+- **Lint** (`npm run lint`)
+- **Self-check** (`npm test`) — scoring, fusion, adaptive difficulty, encoding round-trip, enrichment coverage
+- **Type-checked build** (`npm run build`)
+- **End-to-end** (`npm run test:e2e`, Playwright on a real dev server)
 
 ## Deployment
 
@@ -285,5 +310,37 @@ Notes for running this as public-facing infrastructure.
   connections under concurrent serverless/container load. `DATABASE_URL` should point at
   Neon's pooled endpoint.
 - **Baseline HTTP hardening.** Security headers on every response (HSTS, `X-Frame-Options:
-  DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`); see
-  `next.config.ts`. Known limitations (e.g. full CSP) are tracked in `SECURITY_AUDIT.md`.
+  DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, a partial
+  CSP); see `next.config.ts`. Known limitations (e.g. a full nonce-based CSP) are tracked in
+  `SECURITY_AUDIT.md`.
+
+---
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup,
+conventions, and how to open a pull request, and please read the
+[Code of Conduct](CODE_OF_CONDUCT.md). Good first issues and the planned direction live
+in the [roadmap](ROADMAP.md).
+
+## Security
+
+Found a vulnerability? Please report it **privately** — see [SECURITY.md](SECURITY.md). A
+record of what has been tested and hardened is in [SECURITY_AUDIT.md](SECURITY_AUDIT.md).
+
+## Roadmap
+
+Where Rahi is headed, and what already exists: [ROADMAP.md](ROADMAP.md).
+
+## License
+
+Released under the [MIT License](LICENSE). © 2023–2026 Vaishnavi Eklaspur.
+
+## Acknowledgements
+
+- Interest model based on the **RIASEC / Holland** occupational-themes framework.
+- Emotional-intelligence items are **Goleman-style** domain self-reports.
+- Built with [Next.js](https://nextjs.org), [React](https://react.dev),
+  [Tailwind CSS](https://tailwindcss.com), [Neon](https://neon.tech) Postgres,
+  [Better Auth](https://better-auth.com), and [Google Gemini](https://ai.google.dev).
+- Career, university, and entrance-exam reference data is hand-curated (`lib/enrichment`).
